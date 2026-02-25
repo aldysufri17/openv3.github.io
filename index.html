@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CIE TAMBAH TUA</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            overflow: hidden;
+            background: #000000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background 2s ease;
+        }
+
+        body.full-bg {
+            background: url('fullfoto.jpg') center/cover no-repeat;
+        }
+
+        .puzzle-container {
+            position: fixed;
+            inset: 0;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+        }
+
+        .piece {
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transform: translate(var(--startX), var(--startY)) rotate(var(--rotate)) scale(.5);
+            transition: all 1s cubic-bezier(.68, -0.6, .32, 1.6);
+            background-size: cover;
+            background-position: center;
+        }
+
+        .piece:nth-child(odd) {
+            clip-path: polygon(0% 20%, 20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%);
+        }
+
+        .piece:nth-child(even) {
+            clip-path: polygon(0% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%);
+        }
+
+        .piece.show {
+            opacity: 1;
+            transform: translate(0, 0) rotate(0) scale(1);
+        }
+
+        .center {
+            position: relative;
+            z-index: 5;
+            width: 100%;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, .15);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, .3);
+            color: white;
+            padding: 30px 20px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            background: #ff6b81;
+            color: white;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 16px;
+        }
+
+        .option {
+            display: block;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, .2);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .heart {
+            font-size: 50px;
+            cursor: pointer;
+            margin: 15px 0;
+        }
+
+        .final-text {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 30px;
+            background: rgba(0, 0, 0, .6);
+            color: white;
+            font-size: 26px;
+            opacity: 0;
+            transition: opacity 2s;
+        }
+
+        .final-text.show {
+            opacity: 1;
+        }
+
+        @media(max-width:600px) {
+            .card {
+                padding: 25px 15px;
+            }
+
+            h2 {
+                font-size: 20px;
+            }
+
+            h3 {
+                font-size: 18px;
+            }
+
+            .heart {
+                font-size: 40px;
+            }
+
+            .final-text {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <audio id="bgMusic" src="lagu.mp3"></audio>
+
+    <div class="puzzle-container" id="puzzle"></div>
+
+    <div class="final-text" id="finalText">
+        🎉 Selamat Ulang Tahun Sayang 🎉<br><br>
+        Semua serpihan akhirnya menyatu...<br>
+        Seperti aku dan kamu, Perfect Love ❤️<br><br>
+        <div id="perfectBadge"></div>
+    </div>
+
+    <div class="center">
+
+        <div class="card" id="opening">
+            <h2>Aku Punya Sesuatu Loh</h2>
+            <button onclick="startQuiz()">Buka 🎁</button>
+        </div>
+
+        <div class="card hidden" id="quiz">
+            <h3 id="question"></h3>
+            <div id="options"></div>
+
+            <!-- Progress bar -->
+            <div style="margin:10px 0; color:white;">
+                Pertanyaan <span id="currentQuestion">1</span> dari <span id="totalQuestions">5</span>
+            </div>
+            <div style="background: rgba(255,255,255,0.2); height:10px; border-radius:5px; overflow:hidden;">
+                <div id="progressBar" style="background:#ff6b81; height:100%; width:0%; transition: width 0.3s;"></div>
+            </div>
+
+            <p>❤️ Nyawa: <span id="life">3</span></p>
+        </div>
+
+        <div class="card hidden" id="game">
+            <h3>Kumpulkan 10 Cinta dengan Menekan Hati </h3>
+            <div class="heart" onclick="addLove()">❤️</div>
+            <p><span id="score">0</span>/10</p>
+        </div>
+
+    </div>
+
+    <script>
+        // ==== Puzzle pieces dengan gambar berbeda ====
+        const puzzle = document.getElementById('puzzle');
+        const pieces = [];
+        const images = [
+            'img1.jpeg','img2.jpeg','img3.jpeg','img4.jpeg','img5.jpeg',
+            'img6.jpeg','img7.jpeg','img8.jpeg','img9.jpeg','img10.jpeg'
+        ];
+
+        for (let i = 0; i < 10; i++) {
+            const d = document.createElement('div');
+            d.classList.add('piece');
+            d.style.backgroundImage = `url('${images[i]}')`;
+            d.style.setProperty('--startX', (Math.random() > 0.5 ? -150 : 150) + 'vw');
+            d.style.setProperty('--startY', (Math.random() > 0.5 ? -150 : 150) + 'vh');
+            d.style.setProperty('--rotate', (Math.random() * 720 - 360) + 'deg');
+            puzzle.appendChild(d);
+            pieces.push(d);
+        }
+
+        // ==== Quiz ====
+        const questions = [
+            { q: "Hari ini kamu lagi nambah apa nih...?", a: ["Nambah umur 🎂", "Nambah utang", "Nambah tinggi", "Nambah galak"], correct: 0 },
+            { q: "Kalau kamu ulang tahun, yang paling senang siapa...?", a: ["Teman-teman", "Aku dong 😌", "Tetangga", "Kurir paket"], correct: 1 },
+            { q: "Di umur kamu sekarang, kamu makin...?", a: ["Cantik", "Dewasa", "Bahagia", "Semuanya bener 😆"], correct: 3 },
+            { q: "Kalau kamu tiup lilin, aku berharap kamu...?", a: ["Panjang umur", "Sehat selalu", "Bahagia terus", "Semua bener 😆"], correct: 3 },
+            { q: "Walaupun kamu nambah umur, yang nggak berubah itu...?", a: ["Tanggal lahir", "Rasa sayang aku ke kamu ❤️", "Nama kamu", "Tinggi badan"], correct: 1 }
+        ];
+
+        let current = 0;
+        let life = 3;
+        let perfect = true;
+
+        function startQuiz() {
+            document.getElementById('opening').classList.add('hidden');
+            document.getElementById('quiz').classList.remove('hidden');
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const q = questions[current];
+            document.getElementById('question').innerText = q.q;
+            const optDiv = document.getElementById('options');
+            optDiv.innerHTML = "";
+            q.a.forEach((opt, i) => {
+                const div = document.createElement('div');
+                div.classList.add('option');
+                div.innerText = opt;
+                div.onclick = () => checkAnswer(i);
+                optDiv.appendChild(div);
+            });
+
+            // update progress bar
+            document.getElementById('currentQuestion').innerText = current + 1;
+            document.getElementById('totalQuestions').innerText = questions.length;
+            const progressPercent = (current / questions.length) * 100;
+            document.getElementById('progressBar').style.width = progressPercent + "%";
+        }
+
+        function checkAnswer(i) {
+            if (i === questions[current].correct) {
+                alert("Yeyy 😆 Jawaban kamu benar!");
+                current++;
+                if (current === questions.length) {
+                    document.getElementById('quiz').classList.add('hidden');
+                    document.getElementById('game').classList.remove('hidden');
+
+                    const bgMusic = document.getElementById('bgMusic');
+                    bgMusic.loop = true; // musik looping
+                    bgMusic.play();
+                } else {
+                    showQuestion();
+                }
+            } else {
+                life--;
+                perfect = false;
+                document.getElementById('life').innerText = life;
+                alert("Salah 😢 Coba lagi ya ❤️");
+                if (life === 0) {
+                    alert("Nyawa habis 😆 Tapi tetap lanjut yaa");
+                    life = 3;
+                    document.getElementById('life').innerText = life;
+                }
+            }
+        }
+
+        // ==== Game kumpul hati ====
+        let love = 0;
+        function addLove() {
+            if (love >= 10) return;
+            pieces[love].classList.add('show');
+            love++;
+            document.getElementById('score').innerText = love;
+
+            if (love === 10) {
+                setTimeout(() => {
+                    document.body.classList.add('full-bg');
+                    document.getElementById('game').classList.add('hidden');
+                    document.getElementById('finalText').classList.add('show');
+                }, 1500);
+            }
+        }
+    </script>
+</body>
+
+</html>
